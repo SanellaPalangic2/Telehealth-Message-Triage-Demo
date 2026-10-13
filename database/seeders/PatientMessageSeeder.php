@@ -30,6 +30,8 @@ class PatientMessageSeeder extends Seeder
      */
     public static function data(): array
     {
-        return require database_path('seeders/data/patient_messages.php');
+        // __DIR__ rather than database_path(): Pest datasets call this
+        // before the Laravel app has booted.
+        return require __DIR__.'/data/patient_messages.php';
     }
 }
