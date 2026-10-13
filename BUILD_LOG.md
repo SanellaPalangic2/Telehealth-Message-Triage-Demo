@@ -16,3 +16,8 @@ One line per thing that broke and got fixed: **what broke — why — the fix.**
 
 - Privacy tests crashed with `Call to undefined method Container::databasePath()` — Pest builds datasets before Laravel boots, and the seeder used `database_path()` — load the seed file with `__DIR__` instead.
 - DOB-in-parentheses test failed — the test expected the "DOB" label to be removed, but the service (correctly, consistently) keeps labels and replaces only the value — fixed the test's expectation, not the code.
+
+## Phase 3 — Red-flag rules
+
+- Caught in review before running: a test listed "The stroke of midnight…" as a near miss that must NOT flag — but the `stroke` rule intentionally fires on any mention — moved it to the "deliberately over-flagged" test, alongside negations like "no chest pain".
+- `triage:process` printed `#27 URGENT` with the `→` arrow missing — Windows console code page doesn't render that Unicode character — switched to ASCII `->`.

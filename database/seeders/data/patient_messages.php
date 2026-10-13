@@ -14,6 +14,7 @@
 |   body  - the message text.
 |   pii   - every piece of personal data planted in the body. The redaction
 |           tests assert none of these strings ever reach the AI prompt.
+|   rules - (red flags only) the RulesEngine rule ids expected to fire.
 |
 */
 
@@ -163,20 +164,24 @@ return [
         'kind' => 'red_flag',
         'body' => "I've had crushing chest pain for the last 30 minutes and it's spreading to my left arm. I'm sweating a lot. What should I do?",
         'pii' => [],
+        'rules' => ['chest_pain'],
     ],
     [
         'kind' => 'red_flag',
         'body' => 'I took the new antibiotic an hour ago and now my throat feels like it is closing and I have trouble breathing. My lips are swelling.',
         'pii' => [],
+        'rules' => ['breathing', 'anaphylaxis'],
     ],
     [
         'kind' => 'red_flag',
         'body' => "My husband's face is drooping on one side and his speech is slurred. It started about 20 minutes ago. His name is Daniel Kim, DOB 5/8/1961.",
         'pii' => ['Daniel Kim', '5/8/1961'],
+        'rules' => ['stroke'],
     ],
     [
         'kind' => 'red_flag',
         'body' => "I don't see the point anymore. I've been thinking about ending my life and I have pills saved up.",
         'pii' => [],
+        'rules' => ['self_harm'],
     ],
 ];

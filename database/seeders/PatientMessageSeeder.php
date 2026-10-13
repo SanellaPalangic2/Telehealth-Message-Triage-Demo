@@ -26,7 +26,7 @@ class PatientMessageSeeder extends Seeder
     }
 
     /**
-     * @return list<array{kind: string, body: string, pii: list<string>}>
+     * @return list<array{kind: string, body: string, pii: list<string>, rules?: list<string>}>
      */
     public static function data(): array
     {
