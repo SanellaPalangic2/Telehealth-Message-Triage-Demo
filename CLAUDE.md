@@ -23,7 +23,7 @@ Laravel Http client against the Anthropic Messages API
   committed.
 
 ### AI safety
-- `App\Services\AiTriageService` is the ONLY class that calls Claude.
+- `App\Services\Ai\AiTriageService` is the ONLY class that calls Claude.
 - Text is passed through `RedactionService` BEFORE it reaches the AI. Only
   redacted text is stored in `ai_analyses`.
 - Red-flag (emergency) messages are caught by the deterministic `RulesEngine`
