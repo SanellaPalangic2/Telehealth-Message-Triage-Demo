@@ -11,11 +11,11 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
-test('the seeder creates 30 new messages', function () {
+test('the seeder creates 38 new messages', function () {
     $this->seed(DatabaseSeeder::class);
 
-    expect(PatientMessage::count())->toBe(30)
-        ->and(PatientMessage::where('status', MessageStatus::New)->count())->toBe(30)
+    expect(PatientMessage::count())->toBe(38)
+        ->and(PatientMessage::where('status', MessageStatus::New)->count())->toBe(38)
         ->and(PatientMessage::whereNull('received_at')->count())->toBe(0);
 });
 
@@ -23,7 +23,7 @@ test('seeding again never duplicates the demo data', function () {
     $this->seed(DatabaseSeeder::class);
     $this->seed(DatabaseSeeder::class);
 
-    expect(PatientMessage::count())->toBe(30);
+    expect(PatientMessage::count())->toBe(38);
 });
 
 test('message status is cast to an enum', function () {

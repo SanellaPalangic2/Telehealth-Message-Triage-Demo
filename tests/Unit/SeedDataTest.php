@@ -2,8 +2,8 @@
 
 use Database\Seeders\PatientMessageSeeder;
 
-test('there are exactly 30 seed messages', function () {
-    expect(PatientMessageSeeder::data())->toHaveCount(30);
+test('there are exactly 38 seed messages', function () {
+    expect(PatientMessageSeeder::data())->toHaveCount(38);
 });
 
 test('the seed set covers every message kind', function () {
@@ -11,7 +11,7 @@ test('the seed set covers every message kind', function () {
 
     expect($counts->keys()->sort()->values()->all())
         ->toBe(['appointment', 'billing', 'other', 'red_flag', 'refill', 'side_effect'])
-        ->and($counts['red_flag'])->toBe(4);
+        ->and($counts['red_flag'])->toBe(5);
 });
 
 test('every planted PII string actually appears in its message', function () {

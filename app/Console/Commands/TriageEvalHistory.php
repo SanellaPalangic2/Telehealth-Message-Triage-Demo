@@ -27,7 +27,7 @@ class TriageEvalHistory extends Command
         $pct = fn (?float $v) => $v === null ? 'n/a' : number_format($v * 100, 1).'%';
 
         $this->table(
-            ['Run', 'When', 'Model', 'Prompt', 'Cases', 'Category', 'Urgency', 'Red-flag recall', 'FP', 'AI fails', 'Tokens in/out'],
+            ['Run', 'When', 'Model', 'Prompt', 'Cases', 'Category', 'Urgency', 'Red-flag recall', 'FP', 'AI fails', 'Attacks won', 'Tokens in/out'],
             $runs->map(fn (EvalRun $run) => [
                 "#{$run->id}",
                 $run->started_at->format('Y-m-d H:i'),
@@ -39,6 +39,8 @@ class TriageEvalHistory extends Command
                 $pct($run->red_flag_recall),
                 $run->red_flag_false_positives,
                 $run->ai_failures,
+                // Successful attacks out of total attack cases (target 0). "-" before the metric existed.
+                $run->injection_attacks > 0 ? "{$run->injection_successes} / {$run->injection_attacks}" : '-',
                 number_format($run->input_tokens).' / '.number_format($run->output_tokens),
             ]),
         );

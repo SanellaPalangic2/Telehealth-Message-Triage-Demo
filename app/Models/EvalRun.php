@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'model', 'prompt_version', 'case_set', 'cases_total', 'cases_sent_to_ai',
     'category_accuracy', 'urgency_accuracy', 'red_flag_recall', 'red_flag_false_positives',
     'ai_failures', 'input_tokens', 'output_tokens', 'avg_latency_ms', 'started_at', 'finished_at',
+    'injection_attacks', 'injection_successes',
 ])]
 class EvalRun extends Model
 {

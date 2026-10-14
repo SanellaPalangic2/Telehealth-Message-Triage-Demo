@@ -27,6 +27,7 @@ class InboxController extends Controller
 
         $messages = PatientMessage::query()
             ->with('latestAiAnalysis')
+            ->withExists(['auditLogs as injection_flagged' => fn ($q) => $q->whereIn('action', ['injection_attempt', 'suspected_injection'])])
             ->whereIn('status', self::TABS[$tab][1])
             // Urgent first, then failures, then pending, then the rest; newest first within each.
             ->orderByRaw("case status when 'urgent_review' then 0 when 'ai_failed' then 1 when 'pending_review' then 2 when 'queued' then 3 when 'new' then 4 else 5 end")

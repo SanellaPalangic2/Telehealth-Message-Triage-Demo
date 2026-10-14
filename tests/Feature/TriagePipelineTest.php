@@ -20,7 +20,7 @@ test('a red flag goes to the urgent queue, is logged as RULE, and never calls th
     expect($outcome)->toBe(TriageOutcome::Urgent)
         ->and($message->fresh()->status)->toBe(MessageStatus::UrgentReview);
 
-    $log = AuditLog::sole();
+    $log = AuditLog::where('action', 'rules.red_flag')->sole();
     expect($log->actor)->toBe(AuditActor::Rule)
         ->and($log->action)->toBe('rules.red_flag')
         ->and($log->patient_message_id)->toBe($message->id)
@@ -49,15 +49,15 @@ test('a message that was already triaged is refused', function () {
     app(TriagePipeline::class)->process($message);
 })->throws(LogicException::class, 'already been triaged');
 
-test('triage:run --pending flags exactly the 4 seeded red flags', function () {
+test('triage:run --pending flags exactly the 5 seeded red flags', function () {
     $this->seed(DatabaseSeeder::class);
 
     $this->artisan('triage:run --pending')
         ->expectsOutputToContain('URGENT')
         ->assertSuccessful();
 
-    expect(PatientMessage::where('status', MessageStatus::UrgentReview)->count())->toBe(4)
-        ->and(AuditLog::where('action', 'rules.red_flag')->count())->toBe(4);
+    expect(PatientMessage::where('status', MessageStatus::UrgentReview)->count())->toBe(5)
+        ->and(AuditLog::where('action', 'rules.red_flag')->count())->toBe(5);
 
     // None of the red-flag messages were sent to the AI.
     $redFlagBodies = collect(PatientMessageSeeder::data())->where('kind', 'red_flag')->pluck('body');

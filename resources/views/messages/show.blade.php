@@ -47,6 +47,20 @@
                 </section>
             @endif
 
+            {{-- Prompt-injection warnings --}}
+            @if ($suspectedInjectionLog)
+                <div class="banner red" role="alert">
+                    <strong>Suspected prompt injection.</strong>
+                    The AI's output was rejected because it {{ implode('; ', $suspectedInjectionLog->details['reasons']) }}.
+                    No suggestion was created.
+                </div>
+            @elseif ($injectionLog)
+                <div class="banner red" role="alert">
+                    <strong>This message contains text that looks like instructions to the AI.</strong>
+                    Review any AI suggestion carefully. The message was not blocked; it was flagged for human review.
+                </div>
+            @endif
+
             {{-- Waiting for the worker --}}
             @if ($status === MessageStatus::Queued)
                 <div class="banner purple" role="status">
@@ -99,6 +113,9 @@
                             @endif
                             @if ($analysis->urgency === 'high')
                                 the AI rated this as high urgency.
+                            @endif
+                            @if ($injectionLog)
+                                the message contains a possible prompt injection.
                             @endif
                         </div>
                     @endif
@@ -219,6 +236,24 @@
                             @endforeach
                         </ul>
                     </details>
+                @endif
+
+                <h3 class="small" style="margin: 16px 0 6px;">Prompt-injection checks <span class="badge red">RULE</span></h3>
+                @if ($injectionLog)
+                    <ul class="small" style="margin-top: 0;">
+                        @foreach ($injectionLog->details['hits'] as $hit)
+                            <li><strong>{{ $hit['label'] }}</strong>: matched “{{ $hit['matched'] }}”</li>
+                        @endforeach
+                    </ul>
+                @elseif ($ruleLog)
+                    <p class="small muted">No instruction-like text found in the message.</p>
+                @else
+                    <p class="muted small">Not run yet.</p>
+                @endif
+                @if ($suspectedInjectionLog)
+                    <p class="small">
+                        <strong>Output check:</strong> rejected because the {{ implode('; ', $suspectedInjectionLog->details['reasons']) }}.
+                    </p>
                 @endif
 
                 <h3 class="small" style="margin: 16px 0 6px;">2. AI <span class="badge purple">AI</span></h3>

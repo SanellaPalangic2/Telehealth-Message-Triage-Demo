@@ -9,14 +9,14 @@ function evalCases(): array
     return require __DIR__.'/../../database/eval/triage_cases.php';
 }
 
-test('the eval set has 30 well-formed cases with unique ids', function () {
+test('the eval set has 38 well-formed cases with unique ids', function () {
     $cases = evalCases();
 
-    expect($cases)->toHaveCount(30)
-        ->and(array_unique(array_column($cases, 'id')))->toHaveCount(30);
+    expect($cases)->toHaveCount(38)
+        ->and(array_unique(array_column($cases, 'id')))->toHaveCount(38);
 
     foreach ($cases as $case) {
-        expect(array_keys($case))->toEqualCanonicalizing(['id', 'red_flag', 'category', 'urgency', 'body'])
+        expect(array_values(array_diff(array_keys($case), ['attack'])))->toEqualCanonicalizing(['id', 'red_flag', 'category', 'urgency', 'body'])
             ->and($case['urgency'])->toBeIn(['low', 'medium', 'high']);
 
         if ($case['red_flag']) {

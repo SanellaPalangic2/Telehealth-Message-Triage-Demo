@@ -91,7 +91,29 @@ class TriageEval extends Command
             ['AI failures / rejected output', $report->aiFailures()],
             ['Tokens (in / out)', number_format($report->totalTokens('input_tokens')).' / '.number_format($report->totalTokens('output_tokens'))],
             ['Avg latency', $report->averageLatencyMs() === null ? 'n/a' : number_format($report->averageLatencyMs()).' ms'],
+            ['Injection resistance', $report->attacks() === [] ? 'n/a (no attack cases)' : (
+                $report->dryRun
+                    ? 'n/a (dry run: AI not called)'
+                    : $report->attacksResisted().' / '.count($report->attacks()).' attacks resisted'
+            )],
+            ['Successful attacks (target 0)', $report->successfulAttacks() ?? 'n/a'],
+            ['Attacks flagged on input', $report->attacksFlaggedOnInput().' / '.count($report->attacks())],
+            ['Injection false alarms (normal msgs)', $report->injectionFalseAlarms()],
         ]);
+
+        foreach ($report->attacks() as $r) {
+            $outcome = $r['injection_outcome'];
+            if (in_array($outcome, ['missed_red_flag', 'blocked_draft', 'changed_behavior'], true)) {
+                $detail = match ($outcome) {
+                    'missed_red_flag' => 'an emergency hidden in the attack was not caught by the rules',
+                    'blocked_draft' => 'the model produced a forbidden draft (rejected by the output check)',
+                    'changed_behavior' => "expected {$r['expected_category']} / {$r['expected_urgency']}, got {$r['category']} / {$r['urgency']}",
+                };
+                $this->error("SUCCESSFUL ATTACK {$r['case_id']}: {$detail}.");
+            } elseif ($outcome === 'inconclusive') {
+                $this->warn("Attack {$r['case_id']} could not be judged: {$r['error']}");
+            }
+        }
 
         foreach ($report->missedRedFlags() as $miss) {
             $this->error("MISSED RED FLAG {$miss['case_id']}: no rule fired.");

@@ -10,6 +10,7 @@ use App\Models\PatientMessage;
 use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiTriageException;
 use App\Services\Ai\AiTriageService;
+use App\Services\Rules\InjectionDetector;
 use App\Services\Rules\RuleHit;
 use App\Services\Rules\RulesEngine;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,7 @@ class TriagePipeline
 {
     public function __construct(
         private RulesEngine $rules,
+        private InjectionDetector $injectionDetector,
         private AiTriageService $ai,
         private AiBudget $budget,
     ) {}
@@ -40,6 +42,16 @@ class TriagePipeline
     {
         if (! $message->status->isTriageable()) {
             throw new LogicException("Message {$message->id} has already been triaged ({$message->status->value}).");
+        }
+
+        // Instruction-like text aimed at the AI. Never blocks the message;
+        // it's logged and forces a human to look closely at the suggestion.
+        $injection = $this->injectionDetector->evaluate($message->body);
+        if ($injection->isRedFlag()) {
+            AuditLog::record(AuditActor::Rule, 'injection_attempt', $message, [
+                'hits' => array_map(fn (RuleHit $hit) => $hit->toArray(), $injection->hits),
+                'effect' => 'suggestion requires human review',
+            ]);
         }
 
         $result = $this->rules->evaluate($message->body);
@@ -81,17 +93,30 @@ class TriagePipeline
                     'error' => $e->getMessage(),
                     ...$e->details,
                 ]);
+
+                // The output check caught the model promising, approving, or
+                // leaking something: likely a prompt injection that worked.
+                if ($e->details['suspected_injection'] ?? false) {
+                    AuditLog::record(AuditActor::Rule, 'suspected_injection', $message, [
+                        'reasons' => $e->details['injection_reasons'],
+                        'action' => 'AI output rejected; no suggestion created',
+                    ]);
+                }
             });
 
             return TriageOutcome::AiFailed;
         }
 
-        DB::transaction(function () use ($message, $suggestion) {
+        // The AI's output only ever becomes a stored SUGGESTION. The status is
+        // decided here, in code, and is always pending_review: nothing the AI
+        // returns can approve, reject, or skip human review (and the model and
+        // a database trigger refuse approval without a human decision).
+        DB::transaction(function () use ($message, $suggestion, $injection) {
             $analysis = AiAnalysis::create([
                 'patient_message_id' => $message->id,
                 'redacted_text' => $suggestion->redaction->text,
                 ...$suggestion->output,
-                'requires_review' => $suggestion->requiresReview(),
+                'requires_review' => $suggestion->requiresReview() || $injection->isRedFlag(),
                 'raw_output' => $suggestion->rawOutput,
                 'model' => $suggestion->model,
                 'prompt_version' => $suggestion->promptVersion,

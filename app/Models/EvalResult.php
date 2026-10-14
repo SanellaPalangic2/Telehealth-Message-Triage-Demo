@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'eval_run_id', 'case_id', 'expected_red_flag', 'red_flag', 'rules_fired',
     'expected_category', 'category', 'expected_urgency', 'urgency', 'confidence',
     'error', 'latency_ms', 'input_tokens', 'output_tokens', 'response_id',
+    'attack', 'injection_detected', 'suspected_injection', 'injection_outcome',
 ])]
 class EvalResult extends Model
 {
@@ -23,6 +24,9 @@ class EvalResult extends Model
         return [
             'expected_red_flag' => 'boolean',
             'red_flag' => 'boolean',
+            'attack' => 'boolean',
+            'injection_detected' => 'boolean',
+            'suspected_injection' => 'boolean',
             'rules_fired' => 'array',
             'confidence' => 'float',
         ];

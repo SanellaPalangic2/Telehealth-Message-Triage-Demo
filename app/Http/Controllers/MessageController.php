@@ -29,6 +29,8 @@ class MessageController extends Controller
             'decision' => $message->reviewDecisions->sortByDesc('id')->first(),
             'logs' => $logs,
             'reviewer' => session('reviewer', ''),
+            'injectionLog' => $logs->last(fn ($l) => $l->action === 'injection_attempt'),
+            'suspectedInjectionLog' => $logs->last(fn ($l) => $l->action === 'suspected_injection'),
             'canRerun' => $queue->canRerun($message),
             'isStale' => $analysis?->isStale() ?? false,
         ]);

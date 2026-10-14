@@ -52,3 +52,11 @@ One line per thing that broke and got fixed: **what broke — why — the fix.**
 - Default `retry_after` (90s) was shorter than the job's 180s timeout — the database queue would hand a slow AI call to the worker again and bill it twice — raised `retry_after` to 240s.
 - Caught in design before running: `ShouldBeUnique` takes its lock at dispatch time, so a job waiting with no worker (or discarded in tests) would block "Queue triage" for 10 minutes — switched to `WithoutOverlapping` middleware, which locks only while the job runs.
 - "Queue triage" accepted a message that already had a suggestion — `TriageQueue::queue()` treated any stale suggestion as re-runnable from every entry point — split the two intents (`rerun: true` only from the Re-run button).
+
+## Post-launch — Prompt-injection defense
+
+- CHANGE: layered prompt-injection defense — fake `<patient_message>` tags in patient text are neutralized, the system prompt marks tagged text as untrusted, an `InjectionDetector` logs `injection_attempt` (RULE) and forces review, the output check rejects promise/leak drafts and extra fields as `suspected_injection` (RULE), and approve/reject now requires a human review decision (model guard + SQLite trigger + transition table); 8 attack messages added to the seed and eval sets, plus an injection-resistance metric.
+- Privacy test "messages without PII reach the prompt unchanged" failed for the `</patient_message>` attack seed — the new tag neutralization (correctly) rewrites that text — excluded attack messages from that test and added dedicated delimiter tests.
+- Pipeline test expected exactly one audit row for a red flag — the red-flag + injection seed now logs `injection_attempt` before `rules.red_flag` — query the `rules.red_flag` row specifically.
+- Eval-case shape test failed after allowing the optional `attack` key — `array_diff()` keeps the original keys, so the canonical comparison saw a gap — wrapped it in `array_values()`.
+- The Phase 6 eval run disappeared from `triage:eval-history` — `migrate:fresh --seed` (used to reset demo data) also wipes `eval_runs`, which live in the same SQLite database — the earlier numbers are preserved in the README; reset demo data with care, or move eval runs to their own database if history matters.

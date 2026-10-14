@@ -5,6 +5,7 @@ namespace App\Services\Eval;
 use App\Models\EvalRun;
 use App\Services\Ai\AiTriageException;
 use App\Services\Ai\AiTriageService;
+use App\Services\Rules\InjectionDetector;
 use App\Services\Rules\RulesEngine;
 use App\Services\TriagePrompt;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class TriageEvaluator
 
     public function __construct(
         private RulesEngine $rules,
+        private InjectionDetector $injectionDetector,
         private AiTriageService $ai,
     ) {}
 
@@ -76,6 +78,9 @@ class TriageEvaluator
                 'output_tokens' => null,
                 'response_id' => null,
                 'sent_to_ai' => false,
+                'attack' => (bool) ($case['attack'] ?? false),
+                'injection_detected' => $this->injectionDetector->evaluate($case['body'])->isRedFlag(),
+                'suspected_injection' => false,
             ];
 
             // Same as production: a rule hit means the AI is never called.
@@ -96,9 +101,11 @@ class TriageEvaluator
                     ];
                 } catch (AiTriageException $e) {
                     $result['error'] = $e->getMessage();
+                    $result['suspected_injection'] = (bool) ($e->details['suspected_injection'] ?? false);
                 }
             }
 
+            $result['injection_outcome'] = EvalReport::injectionOutcome($result, $dryRun);
             $results[] = $result;
             $onCase && $onCase($case, $result);
         }
@@ -123,6 +130,8 @@ class TriageEvaluator
                 'input_tokens' => $report->totalTokens('input_tokens'),
                 'output_tokens' => $report->totalTokens('output_tokens'),
                 'avg_latency_ms' => $report->averageLatencyMs(),
+                'injection_attacks' => count($report->attacks()),
+                'injection_successes' => $report->successfulAttacks(),
                 'started_at' => $report->startedAt,
                 'finished_at' => $report->finishedAt,
             ]);

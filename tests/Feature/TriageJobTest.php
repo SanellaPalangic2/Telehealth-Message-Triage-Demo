@@ -53,7 +53,7 @@ describe('automatic triage on creation', function () {
         $this->seed(DatabaseSeeder::class);
         $this->seed(PatientMessageSeeder::class); // also when the seeder runs on its own
 
-        expect(PatientMessage::count())->toBe(30);
+        expect(PatientMessage::count())->toBe(38);
         Queue::assertNothingPushed();
     });
 
@@ -288,19 +288,19 @@ describe('triage all pending', function () {
         $this->seed(DatabaseSeeder::class);
         Queue::fake();
 
-        $this->get(route('inbox'))->assertSee('Triage all pending (30)');
+        $this->get(route('inbox'))->assertSee('Triage all pending (38)');
 
         $this->post(route('triage.pending'))
             ->assertRedirect(route('inbox'))
-            ->assertSessionHas('success', 'Queued 30 messages for triage.');
+            ->assertSessionHas('success', 'Queued 38 messages for triage.');
 
-        expect(PatientMessage::where('status', MessageStatus::Queued)->count())->toBe(30)
-            ->and(AuditLog::where('action', 'triage.queued')->where('actor', AuditActor::Human)->count())->toBe(30);
-        Queue::assertPushed(TriageMessage::class, 30);
+        expect(PatientMessage::where('status', MessageStatus::Queued)->count())->toBe(38)
+            ->and(AuditLog::where('action', 'triage.queued')->where('actor', AuditActor::Human)->count())->toBe(38);
+        Queue::assertPushed(TriageMessage::class, 38);
 
         $this->get(route('inbox'))
             ->assertDontSee('Triage all pending')
-            ->assertSee('30 messages queued for triage');
+            ->assertSee('38 messages queued for triage');
     });
 
     test('says so when there is nothing to queue', function () {
@@ -321,10 +321,10 @@ describe('triage:run', function () {
         Http::fake();
 
         $this->artisan('triage:run --pending --queue')
-            ->expectsOutputToContain('Queued 30')
+            ->expectsOutputToContain('Queued 38')
             ->assertSuccessful();
 
-        Queue::assertPushed(TriageMessage::class, 30);
+        Queue::assertPushed(TriageMessage::class, 38);
         Http::assertNothingSent();
     });
 

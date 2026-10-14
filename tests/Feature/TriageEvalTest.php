@@ -30,7 +30,7 @@ test('--dry-run makes no API calls, saves nothing, and reports 100% recall', fun
     $this->artisan('triage:eval --dry-run')
         ->expectsOutputToContain('DRY RUN')
         ->expectsOutputToContain('100.0%')
-        ->expectsOutputToContain('23 cases would be sent to the API')
+        ->expectsOutputToContain('30 cases would be sent to the API')
         ->assertSuccessful();
 
     Http::assertNothingSent();

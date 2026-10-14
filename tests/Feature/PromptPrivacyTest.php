@@ -58,12 +58,13 @@ test('messages with PII get one placeholder per planted value', function (array 
     ->all());
 
 test('messages without PII reach the prompt unchanged', function (array $message) {
+    // (Attack messages are excluded: their fake delimiter tags are neutralized; see PromptInjectionTest.)
     $payload = app(TriagePrompt::class)->build($message['body']);
 
     expect($payload->redaction->text)->toBe($message['body'])
         ->and($payload->redaction->counts)->toBe([]);
 })->with(fn () => collect(PatientMessageSeeder::data())
-    ->filter(fn ($m) => $m['pii'] === [])
+    ->filter(fn ($m) => $m['pii'] === [] && ! ($m['attack'] ?? false))
     ->mapWithKeys(fn ($m, $i) => ["seed #{$i} ({$m['kind']})" => [$m]])
     ->all());
 

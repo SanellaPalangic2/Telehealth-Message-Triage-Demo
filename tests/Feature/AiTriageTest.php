@@ -271,16 +271,16 @@ describe('the API key', function () {
     });
 });
 
-test('triage:run --pending runs all 30 seed messages: 4 urgent, 26 suggestions', function () {
+test('triage:run --pending runs all 38 seed messages: 5 urgent, 33 suggestions', function () {
     $this->seed(DatabaseSeeder::class);
     fakeClaude();
 
     $this->artisan('triage:run --pending')->assertSuccessful();
 
-    expect(PatientMessage::where('status', MessageStatus::UrgentReview)->count())->toBe(4)
-        ->and(PatientMessage::where('status', MessageStatus::PendingReview)->count())->toBe(26)
-        ->and(AiAnalysis::count())->toBe(26)
-        ->and(AuditLog::where('actor', AuditActor::Ai)->count())->toBe(26);
+    expect(PatientMessage::where('status', MessageStatus::UrgentReview)->count())->toBe(5)
+        ->and(PatientMessage::where('status', MessageStatus::PendingReview)->count())->toBe(33)
+        ->and(AiAnalysis::count())->toBe(33)
+        ->and(AuditLog::where('actor', AuditActor::Ai)->count())->toBe(33);
 
-    Http::assertSentCount(26);
+    Http::assertSentCount(33);
 });

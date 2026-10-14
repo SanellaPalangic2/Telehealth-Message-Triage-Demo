@@ -57,6 +57,9 @@
                                 @if ($analysis?->requires_review && $message->status === \App\Enums\MessageStatus::PendingReview)
                                     <div class="small" style="color: var(--amber); margin-top: 4px;">Needs a closer look</div>
                                 @endif
+                                @if ($message->injection_flagged)
+                                    <div class="small" style="color: var(--red); margin-top: 4px;">Possible prompt injection</div>
+                                @endif
                             </td>
                             <td class="hide-sm">
                                 {{ $analysis ? \App\Enums\Category::from($analysis->category)->label() : '—' }}

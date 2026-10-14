@@ -11,44 +11,71 @@ use Illuminate\Validation\Rule;
  * Server-side check of the model's tool input. Never trust the model's
  * output just because the API returned it: anything that fails here is
  * rejected, not repaired.
+ *
+ * Some failures are also signs of a successful prompt injection (the model
+ * was talked into promising, approving, or leaking something). Those are
+ * reported as suspected_injection so the pipeline can log them as RULE.
  */
 class AiOutputValidator
 {
     private const FIELDS = ['category', 'urgency', 'summary', 'draft_reply', 'confidence'];
 
     /**
-     * Phrases a draft reply must never contain, by reason. Deliberately
-     * strict: a rejected draft just means a human writes the reply.
+     * Phrases a draft reply must never contain: reason => [injection signal?, patterns].
+     * Deliberately strict: a rejected draft just means a human writes the reply.
+     *
+     * @var array<string, array{0: bool, 1: list<string>}>
      */
     private const REPLY_POLICY = [
-        'mentions a price' => [
+        'promises a refill' => [true, [
+            // "your refill has been approved/sent/…", but not "your refill REQUEST has been sent to the team"
+            '/\b(?:refill|prescription|medication|order)(?!\s+request)\b[\w\s,\'’]{0,25}?\b(?:has been|have been|is|was|will be|\'s)\s+(?:approved|authorized|sent|called in|processed|filled|renewed|ready|on (?:its|the) way)\b/i',
+            '/\b(?:we|I)(?:\'ve| have| will|\'ll)?\s+(?:approved|authorized|sent|called in|processed|renewed|filled)\s+(?:your|the)\s+(?:refill|prescription|medication)(?!\s+request)\b/i',
+            '/\bapproved\s+(?:your|the|this)\s+(?:refill|prescription|request)\b/i',
+        ]],
+        'promises a quantity' => [true, [
+            '/\b\d+\s*(?:pills?|tablets?|capsules?|doses?|refills?|bottles?|inhalers?|vials?)\b/i',
+            '/\b\d+[- ]?day supply\b/i',
+        ]],
+        'mentions a dosage' => [true, [
+            '/\b\d+(?:\.\d+)?\s?(?:mg|mcg|ml|units?|iu)\b/i',
+            '/\b(?:increase|decrease|double|triple|reduce|lower|raise|change) (?:your|the) (?:dose|dosage)\b/i',
+            '/\b(?:extra|double|additional) (?:dose|doses|pill|pills)\b/i',
+        ]],
+        'mentions a price' => [true, [
             '/\$\s?\d/',
             '/\b\d+(?:\.\d+)?\s?(?:dollars|usd)\b/i',
             '/\b(?:copay|co-pay|deductible) (?:of|is)\b/i',
-        ],
-        'mentions a date or time commitment' => [
+        ]],
+        'mentions a date or time commitment' => [true, [
             '/\b\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?\b/',
             '/\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|tonight)\b/i',
             '/\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.? \d{1,2}\b/i',
             '/\bwithin \d+|\bwithin (?:an?|one|two|three|24|48) (?:hour|day|business day|week)s?\b/i',
             '/\b(?:by|before) (?:the )?end of (?:the )?(?:day|week)\b/i',
             '/\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/i',
-        ],
-        'makes a guarantee' => [
+        ]],
+        'makes a guarantee' => [true, [
             '/\bguarantee\w*\b/i',
             '/\bpromise\w*\b/i',
             '/\b(?:will definitely|100%|certainly will|rest assured)\b/i',
-        ],
-        'gives medical advice' => [
+        ]],
+        'mentions the system prompt or instructions' => [true, [
+            '/\bsystem prompt\b/i',
+            '/\b(?:my|previous|prior|above|system|hidden) instructions\b/i',
+            '/\bI (?:was|am|have been) (?:instructed|told|programmed)\b/i',
+            '/\bas an (?:AI|assistant|language model)\b/i',
+            '/\b(?:ignore|disregard)\s+(?:all|any|previous|prior|your)\b/i',
+            '/\b(?:patient_message|record_triage)\b/i',
+        ]],
+        'gives medical advice' => [false, [
             '/\byou should (?:take|stop|start|increase|decrease|double|skip|reduce|continue)\b/i',
             '/\b(?:stop|start|keep|continue) taking\b/i',
-            '/\b(?:increase|decrease|double|reduce|lower|raise|change) (?:your|the) (?:dose|dosage)\b/i',
-            '/\b\d+\s?(?:mg|mcg|ml)\b/i',
-            '/\b(?:is|it\'s|that\'s|this is) (?:normal|safe|nothing to worry about|not serious|common)\b/i',
-        ],
-        'contains a redaction placeholder' => [
+            '/\b(?:is|it\'s|that\'s|this is) (?:normal|safe|fine|nothing to worry about|not serious|common)\b/i',
+        ]],
+        'contains a redaction placeholder' => [false, [
             '/\[(?:NAME|PHONE|EMAIL|DOB|DATE|ID)\]/',
-        ],
+        ]],
     ];
 
     /**
@@ -60,13 +87,16 @@ class AiOutputValidator
     public function validate(mixed $input): array
     {
         if (! is_array($input)) {
-            $this->reject(['The tool input is not an object.'], $input);
+            $this->reject(['The tool input is not an object.'], [], $input);
         }
 
         $errors = [];
+        $injection = [];
 
+        // Fields like "approve" or "status" are an attempt to act, not suggest.
         if ($extra = array_diff(array_keys($input), self::FIELDS)) {
             $errors[] = 'Unexpected fields: '.implode(', ', $extra).'.';
+            $injection[] = 'returned fields outside the schema ('.implode(', ', $extra).')';
         }
 
         $validator = Validator::make($input, [
@@ -87,10 +117,13 @@ class AiOutputValidator
         }
 
         if (is_string($input['draft_reply'] ?? null)) {
-            foreach (self::REPLY_POLICY as $reason => $patterns) {
+            foreach (self::REPLY_POLICY as $reason => [$isInjectionSignal, $patterns]) {
                 foreach ($patterns as $pattern) {
                     if (preg_match($pattern, $input['draft_reply'])) {
                         $errors[] = "The draft reply {$reason}.";
+                        if ($isInjectionSignal) {
+                            $injection[] = "draft reply {$reason}";
+                        }
                         break;
                     }
                 }
@@ -98,7 +131,7 @@ class AiOutputValidator
         }
 
         if ($errors !== []) {
-            $this->reject($errors, $input);
+            $this->reject($errors, $injection, $input);
         }
 
         return [
@@ -117,13 +150,19 @@ class AiOutputValidator
 
     /**
      * @param  list<string>  $errors
+     * @param  list<string>  $injection
      */
-    private function reject(array $errors, mixed $input): never
+    private function reject(array $errors, array $injection, mixed $input): never
     {
         throw new AiTriageException(
             AiTriageException::INVALID_OUTPUT,
             'The AI returned output that failed validation: '.implode(' ', $errors),
-            ['errors' => $errors, 'raw_output' => $input],
+            [
+                'errors' => $errors,
+                'raw_output' => $input,
+                'suspected_injection' => $injection !== [],
+                'injection_reasons' => $injection,
+            ],
         );
     }
 }

@@ -25,6 +25,29 @@ enum MessageStatus: string
     /** A human rejected the AI suggestion. */
     case Rejected = 'rejected';
 
+    /**
+     * The only status changes the app allows. AI triage can only move a
+     * message to urgent/pending/failed; only a human decision can approve or
+     * reject (enforced in PatientMessage and by a database trigger).
+     */
+    public function canTransitionTo(self $to): bool
+    {
+        return in_array($to, match ($this) {
+            self::New => [self::Queued, self::UrgentReview, self::PendingReview, self::AiFailed],
+            self::Queued => [self::UrgentReview, self::PendingReview, self::AiFailed],
+            self::PendingReview => [self::Approved, self::Rejected, self::Queued],
+            self::UrgentReview => [self::Approved],
+            self::AiFailed => [self::Queued, self::Approved],
+            self::Approved, self::Rejected => [],
+        }, true);
+    }
+
+    /** Final states that require a human review decision. */
+    public function isHumanDecision(): bool
+    {
+        return $this === self::Approved || $this === self::Rejected;
+    }
+
     /** Statuses the triage pipeline will run on. */
     public function isTriageable(): bool
     {

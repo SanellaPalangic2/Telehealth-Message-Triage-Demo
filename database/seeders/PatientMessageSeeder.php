@@ -10,12 +10,12 @@ use Illuminate\Database\Seeder;
 class PatientMessageSeeder extends Seeder
 {
     // Mutes model events, so seeding never auto-dispatches triage jobs. The
-    // demo re-seeds on every Render restart; auto-triaging all 30 messages
+    // demo re-seeds on every Render restart; auto-triaging all the seeded messages
     // each time would burn API calls. Use "Triage all pending" instead.
     use WithoutModelEvents;
 
     /**
-     * Seed 30 synthetic patient messages, spaced out over the last day.
+     * Seed 38 synthetic patient messages (8 are prompt-injection attempts), spaced out over the last day.
      */
     public function run(): void
     {
@@ -39,7 +39,7 @@ class PatientMessageSeeder extends Seeder
     }
 
     /**
-     * @return list<array{kind: string, body: string, pii: list<string>, rules?: list<string>}>
+     * @return list<array{kind: string, body: string, pii: list<string>, rules?: list<string>, attack?: bool}>
      */
     public static function data(): array
     {
