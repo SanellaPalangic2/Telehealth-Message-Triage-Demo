@@ -27,3 +27,8 @@ One line per thing that broke and got fixed: **what broke — why — the fix.**
 - Spec said "force a required tool" via `tool_choice: {type: "tool"}` — checked the current API reference before writing code: `claude-opus-5-5` rejects forced tool_choice with a 400 — used `tool_choice: auto` + `strict: true` + a prompt instruction, and treat a missing tool call as invalid output.
 - Strict tool schemas can't express `minimum`/`maximum`/`maxLength` — unsupported in strict mode — confidence range and the 2-sentence summary limit are enforced only in `AiOutputValidator`.
 - Two Phase 3 pipeline tests failed once the AI step existed — they asserted non-red-flag messages stay `new` with no HTTP calls — updated them to expect `rules.passed` + an AI call, and to check red-flag bodies are never sent.
+
+## Phase 5 — Review queue
+
+- Layout at `resources/views/layouts/app.blade.php` couldn't be used as `<x-layouts.app>` — anonymous Blade components must live under `resources/views/components/` — moved it to `components/layouts/app.blade.php`.
+- Leftover dev server kept port 8123 busy after a smoke test — stopping `php artisan serve` on Windows doesn't stop the child `php -S` process it spawns — killed the process that owns the port (`Get-NetTCPConnection -LocalPort 8123`).

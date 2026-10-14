@@ -1,5 +1,5 @@
 <?php
 
-test('the application returns a successful response', function () {
-    $this->get('/')->assertOk();
+test('the home page redirects to the inbox', function () {
+    $this->get('/')->assertRedirect('/inbox');
 });
