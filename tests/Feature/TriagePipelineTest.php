@@ -10,7 +10,7 @@ use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\PatientMessageSeeder;
 use Illuminate\Support\Facades\Http;
 
-beforeEach(fn () => Http::fake());
+beforeEach(fn () => fakeClaude());
 
 test('a red flag goes to the urgent queue, is logged as RULE, and never calls the AI', function (array $seed) {
     $message = PatientMessage::factory()->create(['body' => $seed['body']]);
@@ -33,14 +33,14 @@ test('a red flag goes to the urgent queue, is logged as RULE, and never calls th
     ->mapWithKeys(fn ($m, $i) => ["seed #{$i}" => [$m]])
     ->all());
 
-test('a routine message is handed on for AI triage without changes', function () {
+test('a routine message passes the rules and goes to the AI', function () {
     $message = PatientMessage::factory()->create(['body' => 'Can I get a refill on my metformin?']);
 
     $outcome = app(TriagePipeline::class)->process($message);
 
-    expect($outcome)->toBe(TriageOutcome::NeedsAi)
-        ->and($message->fresh()->status)->toBe(MessageStatus::New)
-        ->and(AuditLog::count())->toBe(0);
+    expect($outcome)->toBe(TriageOutcome::Suggested)
+        ->and(AuditLog::where('action', 'rules.passed')->sole()->actor)->toBe(AuditActor::Rule);
+    Http::assertSentCount(1);
 });
 
 test('a message that was already triaged is refused', function () {
@@ -57,10 +57,13 @@ test('triage:process flags exactly the 4 seeded red flags', function () {
         ->assertSuccessful();
 
     expect(PatientMessage::where('status', MessageStatus::UrgentReview)->count())->toBe(4)
-        ->and(AuditLog::where('actor', AuditActor::Rule)->count())->toBe(4)
-        ->and(PatientMessage::where('status', MessageStatus::New)->count())->toBe(26);
+        ->and(AuditLog::where('action', 'rules.red_flag')->count())->toBe(4);
 
-    Http::assertNothingSent();
+    // None of the red-flag messages were sent to the AI.
+    $redFlagBodies = collect(PatientMessageSeeder::data())->where('kind', 'red_flag')->pluck('body');
+    Http::assertNotSent(fn ($request) => $redFlagBodies->contains(
+        fn ($body) => str_contains($request->body(), mb_substr($body, 0, 40))
+    ));
 });
 
 test('triage:process can target specific messages', function () {

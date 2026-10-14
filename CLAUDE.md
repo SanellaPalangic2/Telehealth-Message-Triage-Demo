@@ -31,7 +31,11 @@ Laravel Http client against the Anthropic Messages API
 - The AI never changes data on its own. It only creates suggestions that a
   human approves, edits, or rejects.
 - AI output is forced through a required tool with a JSON schema and is
-  validated server-side. Invalid output is rejected.
+  validated server-side (`AiOutputValidator`). Invalid output is rejected.
+  Current models (e.g. `claude-opus-5-5`) return 400 for a forced
+  `tool_choice` (`tool`/`any`), so we use `tool_choice: auto` +
+  `strict: true` + a system-prompt instruction, and reject any response
+  without the tool call. Don't "fix" this back to a forced tool_choice.
 - If the AI call fails or returns invalid output, show a clear error. NO fake
   or fallback output, ever.
 - Confidence below 0.6 always requires human review.

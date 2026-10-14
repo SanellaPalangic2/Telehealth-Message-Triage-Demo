@@ -7,6 +7,9 @@ enum TriageOutcome: string
     /** A red-flag rule fired; sent to the clinician queue without AI. */
     case Urgent = 'urgent';
 
-    /** No red flag; the message should go to the AI for a suggestion. */
-    case NeedsAi = 'needs_ai';
+    /** The AI produced a valid suggestion that now awaits human review. */
+    case Suggested = 'suggested';
+
+    /** The AI call failed or its output was rejected; a human must triage. */
+    case AiFailed = 'ai_failed';
 }

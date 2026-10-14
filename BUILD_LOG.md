@@ -21,3 +21,9 @@ One line per thing that broke and got fixed: **what broke — why — the fix.**
 
 - Caught in review before running: a test listed "The stroke of midnight…" as a near miss that must NOT flag — but the `stroke` rule intentionally fires on any mention — moved it to the "deliberately over-flagged" test, alongside negations like "no chest pain".
 - `triage:process` printed `#27 URGENT` with the `→` arrow missing — Windows console code page doesn't render that Unicode character — switched to ASCII `->`.
+
+## Phase 4 — AI classification
+
+- Spec said "force a required tool" via `tool_choice: {type: "tool"}` — checked the current API reference before writing code: `claude-opus-5-5` rejects forced tool_choice with a 400 — used `tool_choice: auto` + `strict: true` + a prompt instruction, and treat a missing tool call as invalid output.
+- Strict tool schemas can't express `minimum`/`maximum`/`maxLength` — unsupported in strict mode — confidence range and the 2-sentence summary limit are enforced only in `AiOutputValidator`.
+- Two Phase 3 pipeline tests failed once the AI step existed — they asserted non-red-flag messages stay `new` with no HTTP calls — updated them to expect `rules.passed` + an AI call, and to check red-flag bodies are never sent.

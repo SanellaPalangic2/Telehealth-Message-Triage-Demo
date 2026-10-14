@@ -36,9 +36,11 @@ class TriageProcess extends Command
             $outcome = $pipeline->process($message);
             $tally[$outcome->value] = ($tally[$outcome->value] ?? 0) + 1;
 
-            if ($outcome === TriageOutcome::Urgent) {
-                $this->warn("#{$message->id} -> URGENT (clinician review)");
-            }
+            match ($outcome) {
+                TriageOutcome::Urgent => $this->warn("#{$message->id} -> URGENT (clinician review)"),
+                TriageOutcome::AiFailed => $this->error("#{$message->id} -> AI FAILED: ".$message->auditLogs()->latest('id')->value('details->error')),
+                TriageOutcome::Suggested => $this->line("#{$message->id} -> suggestion ready for review"),
+            };
         }
 
         $this->newLine();

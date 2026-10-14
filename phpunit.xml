@@ -32,5 +32,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Tests never use the real key or call the real API (see tests/TestCase.php). -->
+        <env name="ANTHROPIC_API_KEY" value="sk-ant-test-fake-key-0000" force="true"/>
+        <env name="ANTHROPIC_MODEL" value="claude-opus-5-5" force="true"/>
     </php>
 </phpunit>

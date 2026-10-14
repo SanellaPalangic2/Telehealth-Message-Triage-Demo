@@ -33,6 +33,10 @@ return [
         'model' => env('ANTHROPIC_MODEL'),
         'version' => '2023-06-01',
         'url' => 'https://api.anthropic.com/v1/messages',
+        // Classification is a simple task: low effort keeps it fast and cheap.
+        'effort' => 'low',
+        'max_tokens' => 4096,
+        'timeout' => 60,
     ],
 
     'slack' => [

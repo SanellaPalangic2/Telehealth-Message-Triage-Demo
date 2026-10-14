@@ -28,7 +28,67 @@ class TriagePrompt
         - If the message could describe an emergency, set urgency to high.
         - Be honest about uncertainty: use a lower confidence when the message is vague or
           fits more than one category.
+        - Always answer by calling the record_triage tool exactly once. Do not answer in
+          plain text.
         PROMPT;
+
+    public const TOOL_NAME = 'record_triage';
+
+    /**
+     * The tool Claude must call. `strict: true` makes the API guarantee the
+     * arguments match this schema. Ranges and lengths (confidence 0–1, max
+     * two sentences) aren't expressible in strict schemas, so AiOutputValidator
+     * enforces them server-side.
+     *
+     * @return array<string, mixed>
+     */
+    public static function tool(): array
+    {
+        return [
+            'name' => self::TOOL_NAME,
+            'description' => 'Record the triage suggestion for one patient message.',
+            'strict' => true,
+            'input_schema' => [
+                'type' => 'object',
+                'additionalProperties' => false,
+                'required' => ['category', 'urgency', 'summary', 'draft_reply', 'confidence'],
+                'properties' => [
+                    'category' => [
+                        'type' => 'string',
+                        'enum' => ['refill', 'side_effect', 'appointment', 'billing', 'other'],
+                        'description' => 'What the message is mainly about.',
+                    ],
+                    'urgency' => [
+                        'type' => 'string',
+                        'enum' => ['low', 'medium', 'high'],
+                        'description' => 'How soon the care team should look at it.',
+                    ],
+                    'summary' => [
+                        'type' => 'string',
+                        'description' => 'At most 2 sentences summarizing the request for staff.',
+                    ],
+                    'draft_reply' => [
+                        'type' => 'string',
+                        'description' => 'A short, polite reply to the patient. No medical advice, prices, dates, or guarantees.',
+                    ],
+                    'confidence' => [
+                        'type' => 'number',
+                        'description' => 'Confidence in the category and urgency, from 0 to 1.',
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * A short fingerprint of everything that shapes the model's behavior
+     * (instructions + tool schema). Stored with every analysis and eval run
+     * so results from different prompt versions are never mixed up.
+     */
+    public static function version(): string
+    {
+        return substr(hash('sha256', self::SYSTEM.json_encode(self::tool())), 0, 12);
+    }
 
     public function __construct(private RedactionService $redactor) {}
 
