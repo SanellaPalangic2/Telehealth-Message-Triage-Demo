@@ -39,3 +39,9 @@ One line per thing that broke and got fixed: **what broke — why — the fix.**
 - Dry run printed "0 would be sent to the API" while the table said 25 — the summary line used the live-run counter (`sentToAi`), which is always 0 in a dry run — added `EvalReport::wouldSendToAi()` and used it in both places.
 - `--max-cases=0` silently started a full live run — `if ($max = ...)` treats the string "0" as false, so validation was skipped — switched to an explicit `!== null` check; `Http::preventStrayRequests()` caught it in tests before any real call.
 - History test failed although the output was right — Laravel's `expectsOutputToContain` matches each printed line to only one expectation, and the model and prompt hash share a table row — asserted on `Artisan::output()` instead.
+
+## Phase 7 — Ship it
+
+- Rate-limit tests showed the limit never kicked in — the limiter read `config('triage.rate_limits')` once at boot, so per-request config (and test overrides) were ignored — read the config inside each limiter closure.
+- Rate-limit tests errored with `Unknown named parameter $server` — Laravel's test `post()` has no server-variables argument — used `withServerVariables(['REMOTE_ADDR' => ...])` to simulate different visitors.
+- Dockerfile could not be built locally — Docker isn't installed on the dev machine — verified the pieces that can be checked without it (`sh -n` on the entrypoint, `config:cache`/`route:cache`/`view:cache`, full test suite); the first Render deploy is the real build test.

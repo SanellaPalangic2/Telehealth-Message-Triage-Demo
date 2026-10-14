@@ -1,0 +1,27 @@
+# Secrets: never bake .env (with the API key) into an image.
+.env
+.env.*
+!.env.example
+
+# Rebuilt inside the image
+vendor
+node_modules
+bootstrap/cache/*.php
+
+# Local state
+database/*.sqlite*
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing
+
+# Not needed at runtime
+.git
+.github
+.claude
+tests
+.phpunit.cache
+.phpunit.result.cache
+.idea
+.vscode

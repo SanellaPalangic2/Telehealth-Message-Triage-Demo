@@ -13,6 +13,13 @@ class PatientMessageSeeder extends Seeder
      */
     public function run(): void
     {
+        // Safe to run on every container start: never duplicates the demo data.
+        if (PatientMessage::exists()) {
+            $this->command?->info('Patient messages already exist; skipping seed.');
+
+            return;
+        }
+
         $messages = self::data();
         $count = count($messages);
 

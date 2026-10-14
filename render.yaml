@@ -1,0 +1,35 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# "New > Blueprint" in the Render dashboard, point it at this repo, and fill
+# in the values marked sync: false when prompted. Secrets stay in Render,
+# never in git.
+services:
+  - type: web
+    name: triage-desk
+    runtime: docker
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false # paste the output of: php artisan key:generate --show
+      - key: APP_URL
+        sync: false # e.g. https://triage-desk.onrender.com
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-opus-5-5
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: warning
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: AI_TRIAGE_PER_MINUTE
+        value: "3"
+      - key: AI_TRIAGE_PER_DAY_PER_IP
+        value: "20"
+      - key: AI_TRIAGE_PER_DAY
+        value: "150"

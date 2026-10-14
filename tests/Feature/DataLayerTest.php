@@ -19,6 +19,13 @@ test('the seeder creates 30 new messages', function () {
         ->and(PatientMessage::whereNull('received_at')->count())->toBe(0);
 });
 
+test('seeding again never duplicates the demo data', function () {
+    $this->seed(DatabaseSeeder::class);
+    $this->seed(DatabaseSeeder::class);
+
+    expect(PatientMessage::count())->toBe(30);
+});
+
 test('message status is cast to an enum', function () {
     $message = PatientMessage::factory()->create();
 
