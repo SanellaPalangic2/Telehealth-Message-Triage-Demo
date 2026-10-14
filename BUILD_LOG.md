@@ -32,3 +32,10 @@ One line per thing that broke and got fixed: **what broke — why — the fix.**
 
 - Layout at `resources/views/layouts/app.blade.php` couldn't be used as `<x-layouts.app>` — anonymous Blade components must live under `resources/views/components/` — moved it to `components/layouts/app.blade.php`.
 - Leftover dev server kept port 8123 busy after a smoke test — stopping `php artisan serve` on Windows doesn't stop the child `php -S` process it spawns — killed the process that owns the port (`Get-NetTCPConnection -LocalPort 8123`).
+
+## Phase 6 — Evaluation
+
+- First dry run: red-flag recall 66.7% — the rules missed E03 ("can't lift her right arm… words jumbled", a stroke) and E05 ("bleeding heavily… won't stop") because the patterns only knew "face drooping"/"slurred"/"one side" and the exact phrase "heavy bleeding" — added limb-weakness, jumbled-speech, sudden-onset, and "bleeding heavily" patterns plus unit tests; recall back to 100%.
+- Dry run printed "0 would be sent to the API" while the table said 25 — the summary line used the live-run counter (`sentToAi`), which is always 0 in a dry run — added `EvalReport::wouldSendToAi()` and used it in both places.
+- `--max-cases=0` silently started a full live run — `if ($max = ...)` treats the string "0" as false, so validation was skipped — switched to an explicit `!== null` check; `Http::preventStrayRequests()` caught it in tests before any real call.
+- History test failed although the output was right — Laravel's `expectsOutputToContain` matches each printed line to only one expectation, and the model and prompt hash share a table row — asserted on `Artisan::output()` instead.

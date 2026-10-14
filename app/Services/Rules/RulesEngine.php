@@ -42,6 +42,10 @@ class RulesEngine
             '/\bslurr\w*\b/',
             '/\b(?:numb\w*|weak\w*|paraly\w*|can\'?t move)\b[\w\s\'’-]{0,30}?\bone side\b/',
             '/\bone side\b[\w\s\'’-]{0,30}?\b(?:numb\w*|weak\w*|paraly\w*|droop\w*)\b/',
+            // Added after eval case E03 slipped through.
+            '/\b(?:can\'?t|can’t|cannot|unable to|couldn\'?t)\s+(?:lift|move|raise|feel)\s+(?:his|her|my|their|the)\s+(?:left\s+|right\s+)?(?:arm|leg|hand|face)\b/',
+            '/\b(?:words|speech|talking)\b[\w\s\'’-]{0,20}?\b(?:jumbled|garbled|not making sense)\b/',
+            '/\bsudden(?:ly)?\b[\w\s\'’-]{0,20}?\b(?:confus\w*|numb\w*|weak\w*|can\'?t see|lost (?:his|her|my) vision)\b/',
             '/\bstroke\b/',
         ]],
         'self_harm' => ['Suicide or self-harm risk', [
@@ -61,6 +65,8 @@ class RulesEngine
         ]],
         'bleeding' => ['Severe bleeding', [
             '/\b(?:heavy|severe|uncontrolled|a lot of|lots of)\s+bleeding\b/',
+            // Added after eval case E05 slipped through.
+            '/\bbleed(?:ing)?\s+(?:heavily|a lot|badly|profusely|nonstop|non-stop)\b/',
             '/\bbleeding\b[\w\s\'’-]{0,15}?\b(?:won\'?t|will not|doesn\'?t|does not|can\'?t)\s+stop\b/',
             '/\b(?:vomiting|throwing up|coughing up|coughing)\s+blood\b/',
         ]],

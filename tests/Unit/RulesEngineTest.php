@@ -48,6 +48,11 @@ test('each rule catches other common phrasings', function (string $text, string 
     ['he had a seizure this morning', 'unresponsive'],
     ["I can't wake him up", 'unresponsive'],
     ['CRUSHING CHEST PAIN', 'chest_pain'],
+    // Found by the eval (cases E03, E05):
+    ["she suddenly can't lift her right arm", 'stroke'],
+    ['his words are coming out jumbled', 'stroke'],
+    ['I suddenly feel confused and my vision is blurry', 'stroke'],
+    ["I'm bleeding heavily since the procedure", 'bleeding'],
 ]);
 
 test('near misses are not flagged', function (string $text) {

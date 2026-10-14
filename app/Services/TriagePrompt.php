@@ -25,7 +25,15 @@ class TriagePrompt
         - The draft reply must be polite and brief. It must NOT give medical advice, mention
           prices or costs, promise dates or times, or guarantee any outcome. It should
           acknowledge the message and say the care team will follow up.
-        - If the message could describe an emergency, set urgency to high.
+        - Categories: refill (medication refills, renewals, pharmacy changes); side_effect
+          (symptoms that may be caused by a medication); appointment (booking, changing,
+          cancelling, or preparing for visits); billing (charges, insurance, payments,
+          receipts); other (records, portal or tech issues, notes, anything else). If a
+          message asks about several things, pick its main request.
+        - Urgency: high = could be an emergency or needs a clinician today; medium = a
+          clinical issue the care team should look at within 1-2 days (side effects, being
+          out of a medication or running out within a couple of days); low = administrative
+          or routine (billing, scheduling, records, tech issues, refills with supply left).
         - Be honest about uncertainty: use a lower confidence when the message is vague or
           fits more than one category.
         - Always answer by calling the record_triage tool exactly once. Do not answer in
