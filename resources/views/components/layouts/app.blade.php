@@ -4,6 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Inbox' }} · Triage Desk</title>
+    @if (! empty($refresh))
+        {{-- Re-check while waiting for the queue worker. --}}
+        <meta http-equiv="refresh" content="{{ (int) $refresh }}">
+    @endif
     <style>
         :root {
             --bg: #f6f7f9; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dfe3ea;

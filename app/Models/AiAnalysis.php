@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\TriagePrompt;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class AiAnalysis extends Model
 {
+    /**
+     * Produced by a different prompt version or model than the current
+     * configuration, so it may not reflect how triage behaves now.
+     */
+    public function isStale(): bool
+    {
+        return $this->prompt_version !== TriagePrompt::version()
+            || $this->model !== config('services.anthropic.model');
+    }
+
     /**
      * Get the attributes that should be cast.
      *

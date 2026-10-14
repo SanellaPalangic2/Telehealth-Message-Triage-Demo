@@ -4,10 +4,16 @@ namespace Database\Seeders;
 
 use App\Enums\MessageStatus;
 use App\Models\PatientMessage;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class PatientMessageSeeder extends Seeder
 {
+    // Mutes model events, so seeding never auto-dispatches triage jobs. The
+    // demo re-seeds on every Render restart; auto-triaging all 30 messages
+    // each time would burn API calls. Use "Triage all pending" instead.
+    use WithoutModelEvents;
+
     /**
      * Seed 30 synthetic patient messages, spaced out over the last day.
      */

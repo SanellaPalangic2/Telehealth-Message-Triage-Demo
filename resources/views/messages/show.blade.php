@@ -4,7 +4,7 @@
     $status = $message->status;
 @endphp
 
-<x-layouts.app :title="'Message #'.$message->id">
+<x-layouts.app :title="'Message #'.$message->id" :refresh="$status === MessageStatus::Queued ? 5 : null">
     <p class="small"><a href="{{ route('inbox') }}">&larr; Back to inbox</a></p>
 
     <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px;">
@@ -35,12 +35,24 @@
             @if ($status === MessageStatus::New)
                 <section class="card">
                     <h2>Not triaged yet</h2>
-                    <p class="muted">Triage runs the red-flag rules first. Only if none fire is the redacted text sent to the AI for a suggestion.</p>
+                    <p class="muted">
+                        New messages are triaged automatically in the background. The demo's seeded messages are not,
+                        to save API calls, so queue this one yourself. Triage runs the red-flag rules first; only if none
+                        fire is the redacted text sent to the AI.
+                    </p>
                     <form method="POST" action="{{ route('messages.triage', $message) }}">
                         @csrf
-                        <button class="btn primary" type="submit">Run triage</button>
+                        <button class="btn primary" type="submit">Queue triage</button>
                     </form>
                 </section>
+            @endif
+
+            {{-- Waiting for the worker --}}
+            @if ($status === MessageStatus::Queued)
+                <div class="banner purple" role="status">
+                    <strong>Queued for triage.</strong> The background worker will pick this up shortly. This page refreshes every 5 seconds.
+                    <div class="small" style="margin-top: 4px;">Stuck here? The queue worker may not be running (<code>php artisan queue:work</code>).</div>
+                </div>
             @endif
 
             {{-- Red flag: rules sent it to a clinician; no AI --}}
@@ -54,8 +66,25 @@
             @if ($status === MessageStatus::AiFailed)
                 <div class="banner purple" role="alert">
                     <strong>AI triage failed.</strong> {{ $aiLog?->details['error'] ?? 'Unknown error.' }}
-                    <div class="small" style="margin-top: 4px;">No suggestion was created. A person must triage this message.</div>
+                    <div class="small" style="margin-top: 4px;">No suggestion was created. Write a reply manually below, or re-run triage.</div>
                 </div>
+            @endif
+
+            {{-- Stale suggestion: made by an older prompt or model --}}
+            @if ($isStale && $status === MessageStatus::PendingReview)
+                <div class="banner purple" role="status">
+                    <strong>This suggestion may be out of date.</strong>
+                    It was made with prompt <code>{{ $analysis->prompt_version }}</code> on <code>{{ $analysis->model }}</code>,
+                    which differs from the current configuration.
+                </div>
+            @endif
+
+            @if ($canRerun)
+                <form method="POST" action="{{ route('messages.rerun', $message) }}" style="margin-bottom: 16px;">
+                    @csrf
+                    <button class="btn" type="submit">Re-run triage</button>
+                    <span class="small muted">Runs the rules and the AI again. The previous result stays in the history.</span>
+                </form>
             @endif
 
             {{-- AI suggestion --}}

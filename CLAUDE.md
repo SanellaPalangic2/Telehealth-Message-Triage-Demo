@@ -43,8 +43,19 @@ Laravel Http client against the Anthropic Messages API
 - Every action writes an append-only audit log entry tagged `AI`, `RULE`, or
   `HUMAN`. Audit rows are never updated or deleted.
 
+### Queue
+- Triage runs in the `TriageMessage` queued job (database queue). Creating a
+  `PatientMessage` dispatches it via `PatientMessageObserver`.
+- Seeders must keep `WithoutModelEvents` so demo data is never auto-triaged.
+- Keep the queue's `retry_after` (240s) above `TriageMessage::$timeout`
+  (180s) and the worker's `--timeout`, or slow AI calls get billed twice.
+- Don't use `ShouldBeUnique` on the job (locks at dispatch); overlap is
+  prevented with `WithoutOverlapping`.
+
 ### Tests
 - Tests must NEVER call the real API. Use `Http::fake()`.
+  The test queue is `null` (jobs discarded); job tests opt in with
+  `config(['queue.default' => 'sync' | 'database'])`.
   `Tests\TestCase` calls `Http::preventStrayRequests()` as a safety net.
 - Run tests with `php artisan test` (or `vendor/bin/pest`).
 

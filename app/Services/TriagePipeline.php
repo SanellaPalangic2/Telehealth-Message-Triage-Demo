@@ -7,6 +7,7 @@ use App\Enums\MessageStatus;
 use App\Models\AiAnalysis;
 use App\Models\AuditLog;
 use App\Models\PatientMessage;
+use App\Services\Ai\AiBudget;
 use App\Services\Ai\AiTriageException;
 use App\Services\Ai\AiTriageService;
 use App\Services\Rules\RuleHit;
@@ -22,17 +23,22 @@ use LogicException;
  *   2. Otherwise → AiTriageService. A valid result is stored as a
  *      SUGGESTION awaiting human review; a failure is recorded as an error.
  *      Either way nothing is sent to the patient here.
+ *
+ * Usually run by the TriageMessage queued job; the CLI can also run it
+ * directly. Queued runs pass enforceBudget so AI calls count against the
+ * daily budget. The rules always run, budget or not.
  */
 class TriagePipeline
 {
     public function __construct(
         private RulesEngine $rules,
         private AiTriageService $ai,
+        private AiBudget $budget,
     ) {}
 
-    public function process(PatientMessage $message): TriageOutcome
+    public function process(PatientMessage $message, bool $enforceBudget = false): TriageOutcome
     {
-        if ($message->status !== MessageStatus::New) {
+        if (! $message->status->isTriageable()) {
             throw new LogicException("Message {$message->id} has already been triaged ({$message->status->value}).");
         }
 
@@ -58,6 +64,13 @@ class TriagePipeline
         ]);
 
         try {
+            if ($enforceBudget && ! $this->budget->consume()) {
+                throw new AiTriageException(
+                    AiTriageException::BUDGET_EXHAUSTED,
+                    "Today's AI budget for this demo is used up. Red-flag rules still ran; re-run AI triage tomorrow.",
+                );
+            }
+
             $suggestion = $this->ai->analyze($message->body);
         } catch (AiTriageException $e) {
             DB::transaction(function () use ($message, $e) {

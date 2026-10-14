@@ -271,11 +271,11 @@ describe('the API key', function () {
     });
 });
 
-test('triage:process runs all 30 seed messages: 4 urgent, 26 suggestions', function () {
+test('triage:run --pending runs all 30 seed messages: 4 urgent, 26 suggestions', function () {
     $this->seed(DatabaseSeeder::class);
     fakeClaude();
 
-    $this->artisan('triage:process')->assertSuccessful();
+    $this->artisan('triage:run --pending')->assertSuccessful();
 
     expect(PatientMessage::where('status', MessageStatus::UrgentReview)->count())->toBe(4)
         ->and(PatientMessage::where('status', MessageStatus::PendingReview)->count())->toBe(26)

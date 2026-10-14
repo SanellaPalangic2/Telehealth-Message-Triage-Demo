@@ -11,10 +11,13 @@ Route::redirect('/', '/inbox');
 Route::get('/inbox', InboxController::class)->name('inbox');
 
 Route::get('/messages/{message}', [MessageController::class, 'show'])->name('messages.show');
-// Calls the paid AI API: rate-limited per visitor and globally (see AppServiceProvider).
-Route::post('/messages/{message}/triage', [TriageController::class, 'store'])
-    ->middleware('throttle:ai-triage')
-    ->name('messages.triage');
+// These queue paid AI calls: rate-limited per visitor (AppServiceProvider),
+// and every queued AI call also counts against the global daily AI budget.
+Route::controller(TriageController::class)->group(function () {
+    Route::post('/messages/{message}/triage', 'store')->middleware('throttle:ai-triage')->name('messages.triage');
+    Route::post('/messages/{message}/rerun', 'rerun')->middleware('throttle:ai-triage')->name('messages.rerun');
+    Route::post('/triage/pending', 'pending')->middleware('throttle:triage-bulk')->name('triage.pending');
+});
 
 Route::controller(ReviewController::class)->prefix('/messages/{message}')->name('messages.')->middleware('throttle:reviews')->group(function () {
     Route::post('/approve', 'approve')->name('approve');

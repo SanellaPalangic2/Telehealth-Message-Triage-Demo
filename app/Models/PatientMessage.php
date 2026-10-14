@@ -3,14 +3,17 @@
 namespace App\Models;
 
 use App\Enums\MessageStatus;
+use App\Observers\PatientMessageObserver;
 use Database\Factories\PatientMessageFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['body', 'received_at', 'status'])]
+#[ObservedBy(PatientMessageObserver::class)]
 class PatientMessage extends Model
 {
     /** @use HasFactory<PatientMessageFactory> */

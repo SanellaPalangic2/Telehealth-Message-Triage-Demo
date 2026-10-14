@@ -12,6 +12,8 @@ class AiTriageException extends RuntimeException
 {
     public const NOT_CONFIGURED = 'not_configured';
 
+    public const BUDGET_EXHAUSTED = 'budget_exhausted';
+
     public const HTTP_ERROR = 'http_error';
 
     public const CONNECTION_ERROR = 'connection_error';

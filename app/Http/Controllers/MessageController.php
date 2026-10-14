@@ -5,11 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\PatientMessage;
 use App\Services\RedactionService;
 use App\Services\Rules\RulesEngine;
+use App\Services\TriageQueue;
 use Illuminate\View\View;
 
 class MessageController extends Controller
 {
-    public function show(PatientMessage $message, RedactionService $redactor): View
+    public function show(PatientMessage $message, RedactionService $redactor, TriageQueue $queue): View
     {
         $message->load(['latestAiAnalysis', 'reviewDecisions', 'auditLogs' => fn ($q) => $q->orderBy('id')]);
 
@@ -28,6 +29,8 @@ class MessageController extends Controller
             'decision' => $message->reviewDecisions->sortByDesc('id')->first(),
             'logs' => $logs,
             'reviewer' => session('reviewer', ''),
+            'canRerun' => $queue->canRerun($message),
+            'isStale' => $analysis?->isStale() ?? false,
         ]);
     }
 }

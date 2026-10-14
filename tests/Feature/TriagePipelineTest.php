@@ -49,10 +49,10 @@ test('a message that was already triaged is refused', function () {
     app(TriagePipeline::class)->process($message);
 })->throws(LogicException::class, 'already been triaged');
 
-test('triage:process flags exactly the 4 seeded red flags', function () {
+test('triage:run --pending flags exactly the 4 seeded red flags', function () {
     $this->seed(DatabaseSeeder::class);
 
-    $this->artisan('triage:process')
+    $this->artisan('triage:run --pending')
         ->expectsOutputToContain('URGENT')
         ->assertSuccessful();
 
@@ -66,11 +66,11 @@ test('triage:process flags exactly the 4 seeded red flags', function () {
     ));
 });
 
-test('triage:process can target specific messages', function () {
+test('triage:run can target specific messages', function () {
     $urgent = PatientMessage::factory()->create(['body' => 'I have chest pain']);
     $other = PatientMessage::factory()->create(['body' => 'I also have chest pain']);
 
-    $this->artisan('triage:process', ['--id' => [$urgent->id]])->assertSuccessful();
+    $this->artisan('triage:run', ['--id' => [$urgent->id]])->assertSuccessful();
 
     expect($urgent->fresh()->status)->toBe(MessageStatus::UrgentReview)
         ->and($other->fresh()->status)->toBe(MessageStatus::New);

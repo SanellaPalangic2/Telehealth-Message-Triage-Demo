@@ -13,11 +13,11 @@ class InboxController extends Controller
 {
     /** Inbox tabs: key => [label, statuses]. */
     public const TABS = [
-        'open' => ['Needs attention', [MessageStatus::UrgentReview, MessageStatus::AiFailed, MessageStatus::PendingReview, MessageStatus::New]],
+        'open' => ['Needs attention', [MessageStatus::UrgentReview, MessageStatus::AiFailed, MessageStatus::PendingReview, MessageStatus::Queued, MessageStatus::New]],
         'urgent' => ['Urgent', [MessageStatus::UrgentReview]],
         'pending' => ['Pending review', [MessageStatus::PendingReview]],
         'failed' => ['AI failed', [MessageStatus::AiFailed]],
-        'new' => ['New', [MessageStatus::New]],
+        'new' => ['Not triaged', [MessageStatus::New, MessageStatus::Queued]],
         'done' => ['Done', [MessageStatus::Approved, MessageStatus::Rejected]],
     ];
 
@@ -29,7 +29,7 @@ class InboxController extends Controller
             ->with('latestAiAnalysis')
             ->whereIn('status', self::TABS[$tab][1])
             // Urgent first, then failures, then pending, then the rest; newest first within each.
-            ->orderByRaw("case status when 'urgent_review' then 0 when 'ai_failed' then 1 when 'pending_review' then 2 when 'new' then 3 else 4 end")
+            ->orderByRaw("case status when 'urgent_review' then 0 when 'ai_failed' then 1 when 'pending_review' then 2 when 'queued' then 3 when 'new' then 4 else 5 end")
             ->orderByDesc('received_at')
             ->get();
 
@@ -53,6 +53,8 @@ class InboxController extends Controller
             'tab' => $tab,
             'tabs' => self::TABS,
             'tabCounts' => $tabCounts,
+            'newCount' => $counts[MessageStatus::New->value] ?? 0,
+            'queuedCount' => $counts[MessageStatus::Queued->value] ?? 0,
         ]);
     }
 }

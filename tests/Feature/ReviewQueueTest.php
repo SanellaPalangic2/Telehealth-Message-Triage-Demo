@@ -3,13 +3,16 @@
 use App\Enums\AuditActor;
 use App\Enums\MessageStatus;
 use App\Enums\ReviewAction;
+use App\Jobs\TriageMessage;
 use App\Models\AiAnalysis;
 use App\Models\AuditLog;
 use App\Models\PatientMessage;
 use App\Models\ReviewDecision;
+use App\Services\TriagePipeline;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\PatientMessageSeeder;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
 
 beforeEach(fn () => Sleep::fake());
@@ -95,7 +98,7 @@ describe('message detail', function () {
     test('shows the rules that fired for a red flag', function () {
         $message = PatientMessage::factory()->create(['body' => 'My name is Carla Ruiz and I have crushing chest pain']);
         Http::fake();
-        $this->post(route('messages.triage', $message));
+        app(TriagePipeline::class)->process($message);
 
         $this->get(route('messages.show', $message))
             ->assertSee('Urgent: clinician review')
@@ -111,7 +114,7 @@ describe('message detail', function () {
     test('shows a clear error and the rejected output when the AI failed', function () {
         fakeClaude(triageInput(['draft_reply' => 'We guarantee approval.']));
         $message = PatientMessage::factory()->create(['body' => 'Refill please']);
-        $this->post(route('messages.triage', $message));
+        app(TriagePipeline::class)->process($message);
 
         $this->get(route('messages.show', $message))
             ->assertSee('AI triage failed.')
@@ -153,16 +156,17 @@ test('no view uses unescaped Blade output', function () {
     }
 });
 
-describe('run triage from the UI', function () {
-    test('creates a suggestion for a new message', function () {
-        fakeClaude();
+describe('queue triage from the UI', function () {
+    test('queues a not-yet-triaged message for the worker', function () {
         $message = PatientMessage::factory()->create(['body' => 'Can I get a refill?']);
+        Queue::fake();
 
         $this->post(route('messages.triage', $message))
             ->assertRedirect(route('messages.show', $message))
             ->assertSessionHas('success');
 
-        expect($message->fresh()->status)->toBe(MessageStatus::PendingReview);
+        expect($message->fresh()->status)->toBe(MessageStatus::Queued);
+        Queue::assertPushed(TriageMessage::class, fn ($job) => $job->message->is($message));
     });
 
     test('refuses a message that was already triaged', function () {
@@ -297,7 +301,7 @@ test('a full review keeps an ordered RULE → AI → HUMAN audit trail', functio
     fakeClaude();
     $message = PatientMessage::factory()->create(['body' => 'Refill please']);
 
-    $this->post(route('messages.triage', $message));
+    app(TriagePipeline::class)->process($message);
     $this->post(route('messages.approve', $message), ['reviewer' => 'A']);
 
     expect($message->auditLogs()->orderBy('id')->pluck('action')->all())

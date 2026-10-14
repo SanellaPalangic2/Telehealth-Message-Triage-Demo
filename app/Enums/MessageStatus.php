@@ -7,6 +7,9 @@ enum MessageStatus: string
     /** Received, not triaged yet. */
     case New = 'new';
 
+    /** A person asked for (re-)triage; waiting for the queue worker. */
+    case Queued = 'queued';
+
     /** A red-flag rule fired. Skips the AI and goes to a clinician. */
     case UrgentReview = 'urgent_review';
 
@@ -22,10 +25,17 @@ enum MessageStatus: string
     /** A human rejected the AI suggestion. */
     case Rejected = 'rejected';
 
+    /** Statuses the triage pipeline will run on. */
+    public function isTriageable(): bool
+    {
+        return $this === self::New || $this === self::Queued;
+    }
+
     public function label(): string
     {
         return match ($this) {
             self::New => 'New',
+            self::Queued => 'Queued for triage',
             self::UrgentReview => 'Urgent – clinician review',
             self::PendingReview => 'Pending review',
             self::AiFailed => 'AI failed – manual triage',

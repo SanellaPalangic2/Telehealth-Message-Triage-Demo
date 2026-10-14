@@ -33,3 +33,9 @@ services:
         value: "20"
       - key: AI_TRIAGE_PER_DAY
         value: "150"
+      # Triage runs in a queued job; the worker runs inside this container
+      # (see docker/entrypoint.sh). The queue lives in the SQLite database.
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: RUN_QUEUE_WORKER
+        value: "true"

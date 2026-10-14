@@ -16,8 +16,11 @@ Built with Laravel 13, PHP 8.4, SQLite, Blade, Pest, and the Anthropic Messages 
 
 ## What it does
 
-1. **A patient message arrives** (30 synthetic messages are seeded: refills,
-   side effects, appointments, billing, and 4 emergencies).
+1. **A patient message arrives** and a queued `TriageMessage` job is dispatched
+   automatically; a background worker runs the steps below. (The 30 seeded
+   demo messages — refills, side effects, appointments, billing, and 4
+   emergencies — are *not* auto-triaged, to save API calls on a demo that
+   re-seeds on every restart; use **Triage all pending**.)
 2. **Red-flag rules run first.** Deterministic patterns look for emergencies
    (chest pain, trouble breathing, stroke signs, self-harm, overdose, severe
    bleeding, anaphylaxis, unresponsiveness). A hit sends the message straight to
@@ -41,7 +44,8 @@ Built with Laravel 13, PHP 8.4, SQLite, Blade, Pest, and the Anthropic Messages 
 
 ```mermaid
 flowchart TD
-    M[Patient message] --> R{RulesEngine<br/>deterministic}
+    M[Patient message created] --> Q[TriageMessage job<br/>database queue + worker]
+    Q --> R{RulesEngine<br/>deterministic}
     R -- red flag --> U[Urgent – clinician review<br/>audit: RULE]
     R -- no flag --> X[RedactionService<br/>names, DOBs, phones, emails, IDs]
     X --> P[TriagePrompt<br/>system prompt + strict tool]
@@ -62,6 +66,7 @@ flowchart TD
 | `TriagePrompt` | `app/Services/` | The only builder of AI-bound text; always redacts first. Hashes prompt + schema into a **prompt version**. |
 | `AiTriageService` | `app/Services/Ai/` | The only class that calls Claude (Laravel Http client). Retries 429/5xx/529; never writes to the DB. |
 | `AiOutputValidator` | `app/Services/Ai/` | Schema, ranges, 2-sentence summary, and draft-reply policy. Rejects, never repairs. |
+| `TriageMessage` job | `app/Jobs/` | Dispatched on message creation (observer) or by Queue / Re-run / Triage all pending. Runs the pipeline; a crash marks the message failed. |
 | `TriagePipeline` | `app/Services/` | Rules → AI → store suggestion or failure, in transactions. |
 | `ReviewService` | `app/Services/` | Approve / edit / reject, with a status re-check so nothing is decided twice. |
 | `AuditLog` | `app/Models/` | Append-only: blocked in the model **and** by SQLite triggers. |
@@ -104,8 +109,12 @@ response id, latency, tokens, model, prompt version), `review_decisions`,
 - **Escaped output.** All model text renders through Blade `{{ }}`; a test fails
   if any view uses `{!! !!}`, and another renders `<script>` payloads.
 - **Append-only audit trail** tagged `RULE`, `AI`, `HUMAN`.
-- **Cost control on the public demo.** "Run triage" is rate-limited per visitor
-  (3/min, 20/day) and globally (150/day); review actions are limited too.
+- **Cost control on the public demo.** Seeded messages are never auto-triaged.
+  The buttons that queue triage are rate-limited per visitor (3/min, 20/day;
+  "Triage all pending" 1/hour and 5/day globally), and every queued AI call
+  counts against a global daily budget (150) checked inside the job. When the
+  budget is used up, red-flag rules still run and the AI step fails with a
+  clear error. Review actions are limited too.
 - **Tests can't call the real API.** `Http::preventStrayRequests()` runs in
   every test, and tests use a fake key.
 
@@ -157,15 +166,28 @@ cp .env.example .env
 php artisan key:generate
 # put your key in .env: ANTHROPIC_API_KEY=...
 php artisan migrate --seed
-php artisan serve            # http://localhost:8000
 ```
+
+Then run the web server and the queue worker in **two terminals**:
+
+```bash
+php artisan serve                # terminal 1: http://localhost:8000
+php artisan queue:work           # terminal 2: processes triage jobs (Ctrl+C to stop)
+```
+
+Without the worker, triage requests wait in the `jobs` table (messages show
+"Queued for triage") until a worker runs. After changing code, restart the
+worker; it keeps the old code in memory.
 
 Useful commands:
 
 ```bash
-php artisan test                 # 291 tests, no real API calls
-php artisan triage:process       # triage all new messages from the CLI (real API)
-php artisan migrate:fresh --seed # reset the demo data
+php artisan test                    # all tests, no real API calls
+php artisan triage:run --pending    # triage every untriaged message now, no worker needed (real API)
+php artisan triage:run --pending --queue   # or hand them to the worker
+php artisan triage:run --id=5       # one message
+php artisan queue:failed            # jobs that crashed (the message is marked failed too)
+php artisan migrate:fresh --seed    # reset the demo data
 ```
 
 ## Deploying to Render
@@ -178,8 +200,15 @@ only) and a `render.yaml` Blueprint.
 3. Fill in the prompted secrets: `APP_KEY` (output of
    `php artisan key:generate --show`), `APP_URL`, `ANTHROPIC_API_KEY`.
 4. Deploy. On start the container runs migrations, seeds the demo data if the
-   database is empty, and caches config, routes, and views. It refuses to start
-   if `APP_DEBUG=true` in production.
+   database is empty, caches config, routes, and views, and **starts the queue
+   worker in the background** (restarted automatically if it exits). It refuses
+   to start if `APP_DEBUG=true` in production.
+
+**Why the worker runs inside the web container:** the job queue lives in the
+SQLite database, and a separate Render worker service couldn't share that
+file (Render's free plan also has no background workers). To scale beyond a
+demo, move to Postgres or Redis and run `php artisan queue:work` as its own
+Background Worker service with `RUN_QUEUE_WORKER=false` on the web service.
 
 On the free plan the disk is ephemeral, so the demo resets to fresh seed data
 whenever the service restarts or sleeps. To keep data, attach a persistent disk
@@ -201,8 +230,8 @@ and point `DB_DATABASE` at it.
   login, roles, and authorized access to the original (unredacted) text.
 - **Nothing is sent to patients.** "Approved" means approved; there is no
   messaging integration.
-- **AI calls are synchronous** (~10 s) during the web request. A production
-  system would queue them.
+- **One in-container queue worker.** Fine for a demo; production would run
+  dedicated workers on a shared queue (Redis/Postgres) and monitor failed jobs.
 - **Per-visitor rate limits use the client IP behind a proxy and can be
   spoofed.** The global daily cap is the real cost ceiling.
 - **The eval set is small and self-labeled** (see Evaluation).
@@ -218,7 +247,7 @@ explained the Laravel concepts, and gave manual test steps before continuing.
 **What the agents wrote**
 - All application code, migrations, views, and the Docker/Render setup.
 - The synthetic seed data and the labeled eval set.
-- The test suite (291 Pest tests) and the `BUILD_LOG.md` entries.
+- The test suite (324 Pest tests) and the `BUILD_LOG.md` entries.
 
 **What I reviewed**
 

@@ -45,3 +45,10 @@ One line per thing that broke and got fixed: **what broke — why — the fix.**
 - Rate-limit tests showed the limit never kicked in — the limiter read `config('triage.rate_limits')` once at boot, so per-request config (and test overrides) were ignored — read the config inside each limiter closure.
 - Rate-limit tests errored with `Unknown named parameter $server` — Laravel's test `post()` has no server-variables argument — used `withServerVariables(['REMOTE_ADDR' => ...])` to simulate different visitors.
 - Dockerfile could not be built locally — Docker isn't installed on the dev machine — verified the pieces that can be checked without it (`sh -n` on the entrypoint, `config:cache`/`route:cache`/`view:cache`, full test suite); the first Render deploy is the real build test.
+
+## Post-launch — Automatic triage via a queued job
+
+- CHANGE: triage now runs automatically — creating a message dispatches a queued `TriageMessage` job (database queue) that runs the full pipeline; seeded messages are NOT auto-triaged (the seeder mutes model events) because the demo re-seeds on every Render restart and would burn API calls — added "Re-run triage" (failed/stale results), a rate-limited "Triage all pending" button, and `triage:run --pending` (replaces `triage:process`); the daily AI budget moved from the button to a per-AI-call check inside the job, because one bulk click queues many calls.
+- Default `retry_after` (90s) was shorter than the job's 180s timeout — the database queue would hand a slow AI call to the worker again and bill it twice — raised `retry_after` to 240s.
+- Caught in design before running: `ShouldBeUnique` takes its lock at dispatch time, so a job waiting with no worker (or discarded in tests) would block "Queue triage" for 10 minutes — switched to `WithoutOverlapping` middleware, which locks only while the job runs.
+- "Queue triage" accepted a message that already had a suggestion — `TriageQueue::queue()` treated any stale suggestion as re-runnable from every entry point — split the two intents (`rerun: true` only from the Re-run button).

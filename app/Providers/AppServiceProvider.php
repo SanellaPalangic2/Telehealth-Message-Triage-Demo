@@ -45,9 +45,18 @@ class AppServiceProvider extends ServiceProvider
             Limit::perDay($limits('ai_per_day_per_ip'))
                 ->by('ip-day:'.$request->ip())
                 ->response($backWith('You have reached today\'s AI triage limit for this demo.')),
-            Limit::perDay($limits('ai_per_day_global'))
-                ->by('global-day')
-                ->response($backWith('The demo has reached its daily AI budget. Rules and the review queue still work; AI triage resumes tomorrow.')),
+        ]);
+
+        // One click can queue many AI calls, so this is much stricter. The
+        // global daily AI budget (AiBudget, checked per AI call in the job)
+        // is the real cost ceiling either way.
+        RateLimiter::for('triage-bulk', fn (Request $request) => [
+            Limit::perHour($limits('bulk_per_hour_per_ip'))
+                ->by('bulk-ip:'.$request->ip())
+                ->response($backWith('"Triage all pending" was used recently. Please try again later.')),
+            Limit::perDay($limits('bulk_per_day_global'))
+                ->by('bulk-global')
+                ->response($backWith('"Triage all pending" has reached its daily limit for this demo.')),
         ]);
 
         RateLimiter::for('reviews', fn (Request $request) => Limit::perMinute($limits('reviews_per_minute_per_ip'))
