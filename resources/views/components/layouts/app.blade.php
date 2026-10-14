@@ -8,6 +8,10 @@
         {{-- Re-check while waiting for the queue worker. --}}
         <meta http-equiv="refresh" content="{{ (int) $refresh }}">
     @endif
+    {{-- Atkinson Hyperlegible: designed for legibility (I/l/1 and 0/O are distinct),
+         served by Bunny Fonts, a privacy-friendly host that doesn't track visitors. --}}
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=atkinson-hyperlegible:400,400i,700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #f6f7f9; --surface: #ffffff; --text: #1d2330; --muted: #5d6677; --border: #dfe3ea;
@@ -28,7 +32,7 @@
             }
         }
         * { box-sizing: border-box; }
-        body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+        body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif; }
         a { color: var(--accent); }
         header.top { background: var(--surface); border-bottom: 1px solid var(--border); }
         header.top .wrap { display: flex; align-items: center; gap: 16px; padding-top: 12px; padding-bottom: 12px; }
