@@ -39,30 +39,7 @@ class TriageQueue
      */
     public function queue(PatientMessage $message, string $source = 'ui', bool $rerun = false): void
     {
-        DB::transaction(function () use ($message, $source, $rerun) {
-            $message->refresh();
-
-            if ($rerun && $this->canRerun($message)) {
-                $reason = $message->status === MessageStatus::AiFailed ? 'rerun_failed' : 'rerun_stale';
-            } elseif (! $rerun && $this->canQueue($message)) {
-                $reason = 'not_triaged';
-            } else {
-                $what = $rerun ? 'Triage can only be re-run for failed or out-of-date results' : "Triage can't be queued for this message";
-                throw new LogicException("{$what} (current state: {$message->status->label()}).");
-            }
-
-            $previous = $message->status;
-            $message->update(['status' => MessageStatus::Queued]);
-
-            AuditLog::record(AuditActor::Human, 'triage.queued', $message, [
-                'reason' => $reason,
-                'source' => $source,
-                'previous_status' => $previous->value,
-            ]);
-
-            // afterCommit (set on the job): dispatched once this transaction commits.
-            TriageMessage::dispatch($message);
-        });
+        DB::transaction(fn () => $this->markQueued($message, $source, $rerun));
     }
 
     /**
@@ -72,15 +49,49 @@ class TriageQueue
      */
     public function queuePending(string $source = 'bulk'): int
     {
-        $messages = PatientMessage::where('status', MessageStatus::New)
-            ->orderBy('received_at')
-            ->limit(self::MAX_BULK)
-            ->get();
+        // One transaction for the whole batch, and no nested transactions
+        // inside it: one write lock instead of one per message, so the worker
+        // isn't fighting this request for the SQLite file. (Nested
+        // transactions become savepoints, whose undo data can spill to temp
+        // files.) Jobs are dispatched after the commit (afterCommit).
+        return DB::transaction(function () use ($source) {
+            $messages = PatientMessage::where('status', MessageStatus::New)
+                ->orderBy('received_at')
+                ->limit(self::MAX_BULK)
+                ->get();
 
-        foreach ($messages as $message) {
-            $this->queue($message, $source);
+            foreach ($messages as $message) {
+                $this->markQueued($message, $source, rerun: false);
+            }
+
+            return $messages->count();
+        });
+    }
+
+    /** Must run inside a transaction. */
+    private function markQueued(PatientMessage $message, string $source, bool $rerun): void
+    {
+        $message->refresh();
+
+        if ($rerun && $this->canRerun($message)) {
+            $reason = $message->status === MessageStatus::AiFailed ? 'rerun_failed' : 'rerun_stale';
+        } elseif (! $rerun && $this->canQueue($message)) {
+            $reason = 'not_triaged';
+        } else {
+            $what = $rerun ? 'Triage can only be re-run for failed or out-of-date results' : "Triage can't be queued for this message";
+            throw new LogicException("{$what} (current state: {$message->status->label()}).");
         }
 
-        return $messages->count();
+        $previous = $message->status;
+        $message->update(['status' => MessageStatus::Queued]);
+
+        AuditLog::record(AuditActor::Human, 'triage.queued', $message, [
+            'reason' => $reason,
+            'source' => $source,
+            'previous_status' => $previous->value,
+        ]);
+
+        // afterCommit (set on the job): dispatched once the transaction commits.
+        TriageMessage::dispatch($message);
     }
 }

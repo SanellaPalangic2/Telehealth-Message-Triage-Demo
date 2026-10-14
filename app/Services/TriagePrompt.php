@@ -36,6 +36,10 @@ class TriagePrompt
         - The draft reply must be polite and brief. It must NOT give medical advice, mention
           prices or costs, promise dates or times, or guarantee any outcome. It should
           acknowledge the message and say the care team will follow up.
+        - In the draft reply, do not repeat any numbers from the patient's message: no doses
+          (like "10mg"), quantities, pill counts, or supply lengths (like "90-day"). Refer to
+          them generally instead, e.g. "your refill request" or "your request about your
+          medication supply". (The summary may include them.)
         - Categories: refill (medication refills, renewals, pharmacy changes); side_effect
           (symptoms that may be caused by a medication); appointment (booking, changing,
           cancelling, or preparing for visits); billing (charges, insurance, payments,

@@ -3,7 +3,11 @@
 namespace App\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Connection;
+use Illuminate\Database\Events\ConnectionEstablished;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -23,6 +27,21 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimits();
+
+        // Keep SQLite's temporary data (savepoint undo logs, sorts) in memory.
+        // Otherwise it spills to a temp file, and `php artisan serve` on
+        // Windows starts PHP without the env vars SQLite uses to find the temp
+        // folder, so large transactions failed with "unable to open database file".
+        $useMemoryTempStore = function (Connection $connection) {
+            if ($connection->getDriverName() === 'sqlite') {
+                $connection->statement('PRAGMA temp_store = MEMORY');
+            }
+        };
+        // Connections opened from now on, and any opened before this provider booted.
+        Event::listen(ConnectionEstablished::class, fn (ConnectionEstablished $e) => $useMemoryTempStore($e->connection));
+        foreach (DB::getConnections() as $connection) {
+            $useMemoryTempStore($connection);
+        }
     }
 
     /**

@@ -38,10 +38,18 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
-            'transaction_mode' => 'DEFERRED',
+            // The web app and the queue worker write to this one file at the
+            // same time. Without these, SQLite fails instantly with "database
+            // is locked" (seen as a 500 on "Triage all pending"):
+            // - busy_timeout: wait up to 5s for the other writer instead of failing
+            // - IMMEDIATE: take the write lock at BEGIN, so the wait applies
+            //   (a DEFERRED transaction that upgrades to a write fails without waiting)
+            // WAL mode is opt-in (DB_JOURNAL_MODE=wal): it helps concurrency on
+            // Linux, but broke writes under `php artisan serve` on Windows.
+            'busy_timeout' => (int) env('DB_BUSY_TIMEOUT', 5000),
+            'journal_mode' => env('DB_JOURNAL_MODE'),
+            'synchronous' => env('DB_SYNCHRONOUS'),
+            'transaction_mode' => env('DB_TRANSACTION_MODE', 'IMMEDIATE'),
         ],
 
         'mysql' => [

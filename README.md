@@ -174,6 +174,12 @@ accuracy, which is why both accuracy numbers dropped from the previous run.
 The other miss is E15 (a vitamin-D question labeled `low`, answered `medium`),
 arguably a labeling call.
 
+*Since this run, the prompt gained one instruction (draft replies must not
+repeat numbers from the patient's message, which fixed innocent echoes like
+"your request about a 90-day supply" being rejected), so the current prompt
+version is `1ea04d723504`. Re-run `php artisan triage:eval` to refresh these
+numbers.*
+
 **Previous run** (before the injection work, 30 cases, prompt `049977d7ed98`):
 recall 100%, category 100% (23/23), urgency 95.7% (22/23), 0 failures.
 
@@ -240,6 +246,12 @@ only) and a `render.yaml` Blueprint.
    worker in the background** (restarted automatically if it exits). It refuses
    to start if `APP_DEBUG=true` in production.
 
+**SQLite and concurrency:** the web app and the worker write to the same SQLite
+file, so the connection waits up to 5 s for a busy database (`busy_timeout`),
+takes the write lock at the start of each transaction (`IMMEDIATE`), and keeps
+temporary data in memory. Without these, "Triage all pending" failed with
+"database is locked". WAL mode can be enabled with `DB_JOURNAL_MODE=wal`.
+
 **Why the worker runs inside the web container:** the job queue lives in the
 SQLite database, and a separate Render worker service couldn't share that
 file (Render's free plan also has no background workers). To scale beyond a
@@ -283,7 +295,7 @@ explained the Laravel concepts, and gave manual test steps before continuing.
 **What the agents wrote**
 - All application code, migrations, views, and the Docker/Render setup.
 - The synthetic seed data and the labeled eval set.
-- The test suite (384 Pest tests) and the `BUILD_LOG.md` entries.
+- The test suite (388 Pest tests) and the `BUILD_LOG.md` entries.
 
 **What I reviewed**
 
