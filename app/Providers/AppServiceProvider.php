@@ -32,10 +32,24 @@ class AppServiceProvider extends ServiceProvider
         // Otherwise it spills to a temp file, and `php artisan serve` on
         // Windows starts PHP without the env vars SQLite uses to find the temp
         // folder, so large transactions failed with "unable to open database file".
+        //
+        // Applied lazily, right before the first query on each PDO handle. It
+        // must never open the database just because a connection object was
+        // created: during the Docker build the database file doesn't exist
+        // yet, and an eager PRAGMA here broke `php artisan package:discover`.
         $useMemoryTempStore = function (Connection $connection) {
-            if ($connection->getDriverName() === 'sqlite') {
-                $connection->statement('PRAGMA temp_store = MEMORY');
+            if ($connection->getDriverName() !== 'sqlite') {
+                return;
             }
+
+            $appliedTo = null;
+            $connection->beforeExecuting(function () use ($connection, &$appliedTo) {
+                $pdo = $connection->getPdo();
+                if ($appliedTo !== spl_object_id($pdo)) {
+                    $appliedTo = spl_object_id($pdo);
+                    $pdo->exec('PRAGMA temp_store = MEMORY');
+                }
+            });
         };
         // Connections opened from now on, and any opened before this provider booted.
         Event::listen(ConnectionEstablished::class, fn (ConnectionEstablished $e) => $useMemoryTempStore($e->connection));

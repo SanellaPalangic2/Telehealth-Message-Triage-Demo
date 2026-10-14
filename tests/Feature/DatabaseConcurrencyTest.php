@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\PatientMessage;
+use App\Providers\AppServiceProvider;
 use App\Services\TriagePrompt;
 use App\Services\TriageQueue;
 use Database\Seeders\DatabaseSeeder;
@@ -48,4 +49,19 @@ test('draft replies are told not to repeat numbers from the message', function (
         ->toContain('do not repeat any numbers from the patient\'s message')
         ->toContain('"90-day"')
         ->toContain('"10mg"');
+});
+
+test('booting never opens the database (the Docker build has no database file yet)', function () {
+    // The Dockerfile runs `php artisan package:discover` before the database
+    // exists. In the production build a connection is already resolved when
+    // AppServiceProvider boots; an eager PRAGMA on it failed the deploy.
+    $missing = sys_get_temp_dir().DIRECTORY_SEPARATOR.'triage-no-such-db-'.uniqid().'.sqlite';
+    $sqlite = ['driver' => 'sqlite', 'database' => $missing, 'prefix' => ''];
+    config(['database.connections.missing' => $sqlite, 'database.connections.missing_later' => $sqlite]);
+
+    DB::connection('missing'); // resolved before boot, as in the production build
+    (new AppServiceProvider(app()))->boot();
+    DB::connection('missing_later'); // and one resolved after boot
+
+    expect(file_exists($missing))->toBeFalse();
 });
